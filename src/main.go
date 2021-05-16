@@ -157,11 +157,17 @@ func getCurrentDayMenu() string {
 
 	i0 := strings.Index(content, currentDay) + len(currentDay)
 	i1 := strings.Index(content, nextDay)
-	if i0 == -1 || i1 == -1 {
+	if i0 == -1 {
 		currentMenu = "Меню на сегодня не найдено :("
-		log.Fatal("Couldn't find current day in downloaded menu. Skip sending.")
+		fmt.Println(content)
+		log.Println("Couldn't find current day in downloaded menu. Skip sending.")
+		return currentMenu
 	} else {
-		currentMenu = content[i0:i1]
+		if i1 == -1 {
+			currentMenu = content[i0:]
+		} else {
+			currentMenu = content[i0:i1]
+		}
 		fmt.Println(fmt.Sprintf("%s -> %s", currentDay, nextDay))
 		fmt.Println(fmt.Sprintf("%d -> %d", i0, i1))
 		for _, separator := range separators {
