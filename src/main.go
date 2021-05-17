@@ -3,15 +3,16 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/ledongthuc/pdf"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/ledongthuc/pdf"
 )
 
 const MainUrl = "https://puberty-spb.ru/menu/menyu-restorana/"
@@ -89,7 +90,7 @@ func downloadMenu() string {
 	// Find the menu URL
 	doc.Find("a.item-link").Each(func(i int, s *goquery.Selection) {
 		href, _ := s.Attr("href")
-		if strings.Contains(href, "obed") {
+		if strings.Contains(href, "obed") || strings.Contains(href, "lanch") {
 			fmt.Println(href)
 			menuURL = href
 		}
@@ -99,10 +100,10 @@ func downloadMenu() string {
 		return ""
 	}
 	tmpDir := os.TempDir()
-	filePath := fmt.Sprintf("%s%s", tmpDir, "paberti-obed.pdf")
+	filePath := fmt.Sprintf("%s/%s", tmpDir, "paberti-obed.pdf")
 	err = downloadFile(menuURL, filePath)
 	if err != nil {
-		return fmt.Sprintf("Couldn't download menu from URL: %s", menuURL)
+		return fmt.Sprintf("Couldn't download menu from URL: %s (%s)", menuURL, err)
 	}
 	return filePath
 }
@@ -155,8 +156,8 @@ func getCurrentDayMenu() string {
 		panic(err)
 	}
 
-	i0 := strings.Index(content, currentDay) + len(currentDay)
-	i1 := strings.Index(content, nextDay)
+	i0 := strings.Index(strings.ToLower(content), currentDay) + len(currentDay)
+	i1 := strings.Index(strings.ToLower(content), nextDay)
 	if i0 == -1 {
 		currentMenu = "Меню на сегодня не найдено :("
 		fmt.Println(content)
@@ -190,7 +191,7 @@ func getCurrentDayMenu() string {
 func main() {
 	log.Printf("Starting GoToPuberty BOT")
 
-	bot, err := tgbotapi.NewBotAPI("tg:token")
+	bot, err := tgbotapi.NewBotAPI("1718325810:AAG3iF6X8OKLE9S7-3RTMnpamFLOotDRzbs")
 	if err != nil {
 		log.Panicf("Couldb't generate TG bot: %s", err)
 	}
