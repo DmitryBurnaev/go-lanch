@@ -1,4 +1,4 @@
-package main
+package errors
 
 import (
 	"bytes"
@@ -13,59 +13,85 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/ledongthuc/pdf"
+
+	"errors"
 )
 
 const MainUrl = "https://puberty-spb.ru/menu/menyu-restorana/"
 
 var savedMenus = map[string]string{}
 
-func readPdf(path string) (string, error) {
-	f, r, err := pdf.Open(path)
-	// remember close file
-	defer f.Close()
+// Allows to read text content from PDF file
+func readPdf(filepath string) (string, error) {
+	f, r, err := pdf.Open(filepath)
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			log.Fatalf("Couldn't close read file: filepath: '%s' | error: '%s'", filepath, err.Error())
+		}
+	}(f)
 	if err != nil {
 		return "", err
 	}
-	var buf bytes.Buffer
+
 	b, err := r.GetPlainText()
 	if err != nil {
 		return "", err
 	}
+
+	var buf bytes.Buffer
 	n, err := buf.ReadFrom(b)
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("Read %d bytes from file '%s'\n", n, path)
+
+	fmt.Printf("Read %d bytes from file '%s'", n, filepath)
 	return buf.String(), nil
 }
 
-func downloadFile(url string, filepath string) error {
-
+// Allows to download PDF from puberty's site
+func downloadPDF(url string, filepath string) error {
 	// Get the data
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Fatalf("Couldn't close response body: '%s' | error: '%s'", url, err.Error())
+		}
+	}(resp.Body)
 
 	// Create the file
 	out, err := os.Create(filepath)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func(out *os.File) {
+		err := out.Close()
+		if err != nil {
+			log.Fatalf("Couldn't close file handler: filepath: '%s' | error: '%s'", filepath, err.Error())
+		}
+	}(out)
 
 	// Write the body to file
 	_, err = io.Copy(out, resp.Body)
-	return err
+	if err != nil {
+		log.Printf("Couldn't write binary data to PDF file path: '%s' | error: '%s'", filepath, err.Error())
+		return err
+	}
+	return nil
 }
 
-func downloadMenu() string {
+// Download HTML with link to PDF
+func downloadMenu() (string, error) {
 	// Request the HTML page.
 	res, err := http.Get(MainUrl)
 	if err != nil {
-		log.Fatalf("Couldn't download %s: %s", MainUrl, err.Error())
-		return ""
+		errMsg := fmt.Sprintf("Couldn't download menu: got unexpected status code for url: %s | status %d", MainUrl, res.StatusCode)
+		log.Printf("Couldn't fetch url %s: '%s'", MainUrl, err.Error())
+		return "", errors.New(errMsg)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -75,14 +101,17 @@ func downloadMenu() string {
 	}(res.Body)
 
 	if res.StatusCode != 200 {
-		log.Fatalf("Status code error: %d %s", res.StatusCode, res.Status)
-		return ""
+		errMsg := fmt.Sprintf("Couldn't download menu: got unexpected status code for url: %s | status %d", MainUrl, res.StatusCode)
+		log.Printf(errMsg)
+		return "", errors.New(errMsg)
 	}
 
 	// Load the HTML document
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		log.Fatalf("Couldn't parse HTML content: %s", err.Error())
+		errMsg := fmt.Sprintf("Couldn't parse HTML content from url: %s | error %d", MainUrl, err.Error())
+		log.Printf(errMsg)
+		return "", errors.New(errMsg)
 	}
 
 	menuURL := ""
@@ -96,16 +125,19 @@ func downloadMenu() string {
 		}
 	})
 	if menuURL == "" {
-		log.Fatalf("Couldn't fetch menu URL from %s", MainUrl)
-		return ""
+		errMsg := fmt.Sprintf("Couldn't find menu's url: %s", MainUrl)
+		log.Printf(errMsg)
+		return "", errors.New(errMsg)
 	}
 	tmpDir := os.TempDir()
 	filePath := fmt.Sprintf("%s/%s", tmpDir, "paberti-obed.pdf")
-	err = downloadFile(menuURL, filePath)
+	err = downloadPDF(menuURL, filePath)
 	if err != nil {
-		return fmt.Sprintf("Couldn't download menu from URL: %s (%s)", menuURL, err)
+		errMsg := fmt.Sprintf("Couldn't download menu from URL: %s | error '%s'", menuURL, err.Error())
+		log.Printf(errMsg)
+		return "", errors.New(errMsg)
 	}
-	return filePath
+	return filePath, nil
 }
 
 func getCurrentDayMenu() string {
@@ -181,7 +213,7 @@ func getCurrentDayMenu() string {
 	currentMenu = fmt.Sprintf("Меню на %s\n\n%s", currentDay, currentMenu)
 	fmt.Println(currentMenu)
 	if err != nil {
-		log.Fatalf("Couldn't send message to telegram chats: %s", err)
+		log.Printf("Couldn't send message to telegram chats: %s", err)
 		return ""
 	}
 	savedMenus[currentDay] = currentMenu
@@ -205,7 +237,7 @@ func main() {
 
 	updates, err := bot.GetUpdatesChan(u)
 	if err != nil {
-		log.Fatalf("Couldn't get updates chan (telegram problems)")
+		log.Printf("Couldn't get updates chan (telegram problems)")
 		return
 	}
 
@@ -223,7 +255,7 @@ func main() {
 
 		_, err := bot.Send(newMessage)
 		if err != nil {
-			log.Fatalf("Couldn't send message to channel %d. Error: %s", update.Message.Chat.ID, err)
+			log.Printf("Couldn't send message to channel %d. Error: %s", update.Message.Chat.ID, err)
 		}
 	}
 }
