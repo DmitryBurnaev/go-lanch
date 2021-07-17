@@ -146,12 +146,16 @@ func downloadMenu() (string, error) {
 func getCurrentDayMenu(target string) string {
 	fmt.Println("getCurrentDayMenu")
 	months := map[int]string{
-		1: "января",
-		4: "апреля",
-		5: "мая",
-		6: "июня",
-		7: "июля",
-		8: "августа",
+		1:  "января",
+		4:  "апреля",
+		5:  "мая",
+		6:  "июня",
+		7:  "июля",
+		8:  "августа",
+		9:  "сентября",
+		10: "октября",
+		11: "ноября",
+		12: "декабря",
 	}
 	separators := []string{
 		"Салат дня – ",
@@ -168,21 +172,20 @@ func getCurrentDayMenu(target string) string {
 	switch target {
 	case "today":
 		deltaDays = 0
-	case "nextday":
+	case "tomorrow":
 		deltaDays = 1
+		nextDays = 2
 	case "week":
-		deltaDays = 0
-		nextDays = 7
+		return "В разработке..."
 	}
+	// for tests
+	//currentTime = currentTime.AddDate(0,0, 2)
 
 	currentTime = currentTime.AddDate(0, 0, deltaDays)
-	nextTime := currentTime.AddDate(0, 0, nextDays)
+	nextTime := currentTime.AddDate(0, 0, nextDays+deltaDays)
 
 	currentDay := fmt.Sprintf("%d %s", currentTime.Day(), months[int(currentTime.Month())])
 	nextDay := fmt.Sprintf("%d %s", nextTime.Day(), months[int(nextTime.Month())])
-	//
-	//currentDay = "11 мая"
-	//nextDay = "12 мая"
 
 	currentMenu, exists := savedMenus[currentDay]
 	if exists {
@@ -191,8 +194,6 @@ func getCurrentDayMenu(target string) string {
 	}
 
 	log.Printf("Getting menu for %s...\n", currentDay)
-
-	//pdf.DebugOn = true
 	menuPath, err := downloadMenu()
 	if err != nil {
 		return "Couldn't download menu... sorry"
@@ -204,14 +205,15 @@ func getCurrentDayMenu(target string) string {
 		return fmt.Sprintf("Couldn't read PDF file: %s", err)
 	}
 
-	i0 := strings.Index(strings.ToLower(content), currentDay) + len(currentDay)
+	i0 := strings.Index(strings.ToLower(content), currentDay)
 	i1 := strings.Index(strings.ToLower(content), nextDay)
 	if i0 == -1 {
-		currentMenu = "Меню на сегодня не найдено :("
+		currentMenu = "Меню не найдено, ну или у них выходной :("
 		fmt.Println(content)
 		log.Println("Couldn't find current day in downloaded menu. Skip sending.")
 		return currentMenu
 	} else {
+		i0 += len(currentDay)
 		if i1 == -1 {
 			currentMenu = content[i0:]
 		} else {
@@ -254,25 +256,22 @@ func main() {
 	for update := range updates {
 		println(update.Message.Text)
 		commands := map[string]string{
-			"/menu":    "today",
-			"/today":   "today",
-			"/nextday": "nextday",
-			"/week":    "week",
-			"/start":   "start",
+			"/menu":     "today",
+			"/tomorrow": "tomorrow",
+			"/week":     "week",
 		}
+		msg := "Пока не знаю такой команды"
 		if command, ok := commands[update.Message.Text]; ok {
 			log.Printf("[%s] %s -> %s", update.Message.From.UserName, update.Message.Text, command)
-			msg := ""
-			if command == "start" {
-				msg = "/menu\n/today\n/nextday\n/help"
-			} else {
-				msg = getCurrentDayMenu(command)
-			}
-			newMessage := tgbotapi.NewMessage(update.Message.Chat.ID, msg)
-			_, err := bot.Send(newMessage)
-			if err != nil {
-				log.Printf("Couldn't send message to channel %d. Error: %s", update.Message.Chat.ID, err)
-			}
+			msg = getCurrentDayMenu(command)
+		} else {
+			log.Printf("[%s] %s (unknown)", update.Message.From.UserName, update.Message.Text)
+			msg = "Пока не знаю такой команды"
+		}
+		newMessage := tgbotapi.NewMessage(update.Message.Chat.ID, msg)
+		_, err := bot.Send(newMessage)
+		if err != nil {
+			log.Printf("Couldn't send message to channel %d. Error: %s", update.Message.Chat.ID, err)
 		}
 
 	}
