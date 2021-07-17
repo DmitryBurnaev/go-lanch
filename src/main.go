@@ -108,7 +108,7 @@ func downloadMenu() string {
 	return filePath
 }
 
-func getCurrentDayMenu() string {
+func getCurrentDayMenu(target string) string {
 	fmt.Println("getCurrentDayMenu")
 	months := map[int]string{
 		1: "января",
@@ -116,6 +116,7 @@ func getCurrentDayMenu() string {
 		5: "мая",
 		6: "июня",
 		7: "июля",
+		8: "августа",
 	}
 	separators := []string{
 		"Салат дня – ",
@@ -126,9 +127,21 @@ func getCurrentDayMenu() string {
 		"Напиток на выбор – ",
 	}
 	stopWord := "компот/пиво"
-
 	currentTime := time.Now()
-	nextTime := currentTime.AddDate(0, 0, 1)
+	deltaDays := 0
+	nextDays := 1
+	switch target {
+	case "today":
+		deltaDays = 0
+	case "nextday":
+		deltaDays = 1
+	case "week":
+		deltaDays = 0
+		nextDays = 7
+	}
+
+	currentTime = currentTime.AddDate(0, 0, deltaDays)
+	nextTime := currentTime.AddDate(0, 0, nextDays)
 
 	currentDay := fmt.Sprintf("%d %s", int(currentTime.Day()), months[int(currentTime.Month())])
 	nextDay := fmt.Sprintf("%d %s", int(nextTime.Day()), months[int(nextTime.Month())])
@@ -211,19 +224,27 @@ func main() {
 
 	for update := range updates {
 		println(update.Message.Text)
-		if update.Message.Text != "/menu" {
-			continue
+		commands := map[string]string{
+			"/menu":    "today",
+			"/today":   "today",
+			"/nextday": "nextday",
+			"/week":    "week",
+			"/start":   "start",
+		}
+		if command, ok := commands[update.Message.Text]; ok {
+			log.Printf("[%s] %s -> %s", update.Message.From.UserName, update.Message.Text, command)
+			msg := ""
+			if command == "start" {
+				msg = "/menu\n/today\n/nextday\n/help"
+			} else {
+				msg = getCurrentDayMenu(command)
+			}
+			newMessage := tgbotapi.NewMessage(update.Message.Chat.ID, msg)
+			_, err := bot.Send(newMessage)
+			if err != nil {
+				log.Fatalf("Couldn't send message to channel %d. Error: %s", update.Message.Chat.ID, err)
+			}
 		}
 
-		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-
-		msg := getCurrentDayMenu()
-		newMessage := tgbotapi.NewMessage(update.Message.Chat.ID, msg)
-		//newMessage.ReplyToMessageID = update.Message.MessageID
-
-		_, err := bot.Send(newMessage)
-		if err != nil {
-			log.Fatalf("Couldn't send message to channel %d. Error: %s", update.Message.Chat.ID, err)
-		}
 	}
 }
