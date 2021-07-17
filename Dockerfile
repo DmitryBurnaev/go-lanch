@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine
+FROM golang:1.16-buster
 
 # Set destination for COPY
 WORKDIR /app
@@ -12,4 +12,4 @@ COPY src .
 COPY etc/entrypoint.sh .
 
 # Build
-ENTRYPOINT entrypoint.sh
+ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]
