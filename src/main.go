@@ -1,4 +1,4 @@
-package errors
+package main
 
 import (
 	"bytes"
@@ -89,8 +89,8 @@ func downloadMenu() (string, error) {
 	// Request the HTML page.
 	res, err := http.Get(MainUrl)
 	if err != nil {
-		errMsg := fmt.Sprintf("Couldn't download menu: got unexpected status code for url: %s | status %d", MainUrl, res.StatusCode)
-		log.Printf("Couldn't fetch url %s: '%s'", MainUrl, err.Error())
+		errMsg := fmt.Sprintf("Couldn't fetch url %s: '%s'", MainUrl, err.Error())
+		log.Printf(errMsg)
 		return "", errors.New(errMsg)
 	}
 	defer func(Body io.ReadCloser) {
@@ -101,7 +101,10 @@ func downloadMenu() (string, error) {
 	}(res.Body)
 
 	if res.StatusCode != 200 {
-		errMsg := fmt.Sprintf("Couldn't download menu: got unexpected status code for url: %s | status %d", MainUrl, res.StatusCode)
+		errMsg := fmt.Sprintf(
+			"Couldn't download menu: got unexpected status code for url: %s | status %d",
+			MainUrl, res.StatusCode,
+		)
 		log.Printf(errMsg)
 		return "", errors.New(errMsg)
 	}
@@ -109,7 +112,7 @@ func downloadMenu() (string, error) {
 	// Load the HTML document
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		errMsg := fmt.Sprintf("Couldn't parse HTML content from url: %s | error %d", MainUrl, err.Error())
+		errMsg := fmt.Sprintf("Couldn't parse HTML content from url: %s | error %s", MainUrl, err.Error())
 		log.Printf(errMsg)
 		return "", errors.New(errMsg)
 	}
@@ -175,8 +178,8 @@ func getCurrentDayMenu(target string) string {
 	currentTime = currentTime.AddDate(0, 0, deltaDays)
 	nextTime := currentTime.AddDate(0, 0, nextDays)
 
-	currentDay := fmt.Sprintf("%d %s", int(currentTime.Day()), months[int(currentTime.Month())])
-	nextDay := fmt.Sprintf("%d %s", int(nextTime.Day()), months[int(nextTime.Month())])
+	currentDay := fmt.Sprintf("%d %s", currentTime.Day(), months[int(currentTime.Month())])
+	nextDay := fmt.Sprintf("%d %s", nextTime.Day(), months[int(nextTime.Month())])
 	//
 	//currentDay = "11 мая"
 	//nextDay = "12 мая"
@@ -189,16 +192,16 @@ func getCurrentDayMenu(target string) string {
 
 	log.Printf("Getting menu for %s...\n", currentDay)
 
-	pdf.DebugOn = true
-	menuPath := downloadMenu()
-	if menuPath == "" {
+	//pdf.DebugOn = true
+	menuPath, err := downloadMenu()
+	if err != nil {
 		return "Couldn't download menu... sorry"
 	}
 	log.Printf("Parsing PDF %s...\n", menuPath)
 
 	content, err := readPdf(menuPath) // Read local pdf file
 	if err != nil {
-		panic(err)
+		return fmt.Sprintf("Couldn't read PDF file: %s", err)
 	}
 
 	i0 := strings.Index(strings.ToLower(content), currentDay) + len(currentDay)
@@ -224,21 +227,15 @@ func getCurrentDayMenu(target string) string {
 		currentMenu = currentMenu[:contentLastIndex]
 	}
 	currentMenu = fmt.Sprintf("Меню на %s\n\n%s", currentDay, currentMenu)
-	fmt.Println(currentMenu)
-	if err != nil {
-		log.Printf("Couldn't send message to telegram chats: %s", err)
-		return ""
-	}
 	savedMenus[currentDay] = currentMenu
 	return currentMenu
 }
 
 func main() {
 	log.Printf("Starting GoToPuberty BOT")
-
-	bot, err := tgbotapi.NewBotAPI("1718325810:AAG3iF6X8OKLE9S7-3RTMnpamFLOotDRzbs")
+	bot, err := tgbotapi.NewBotAPI(os.Getenv("TG_TOKEN"))
 	if err != nil {
-		log.Panicf("Couldb't generate TG bot: %s", err)
+		log.Panicf("Couldb't start TG bot: %s", err)
 	}
 
 	bot.Debug = true
