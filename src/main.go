@@ -19,7 +19,30 @@ import (
 
 const MainUrl = "https://puberty-spb.ru/menu/menyu-restorana/"
 
+var separators = []string{
+	"Салат дня – ",
+	"Японский салат дня – ",
+	"Суп дня – ",
+	"Японский суп дня – ",
+	"Горячее дня – ",
+	"Напиток на выбор – ",
+}
+var stopWord = "компот/пиво"
+var months = map[int]string{
+	1:  "января",
+	4:  "апреля",
+	5:  "мая",
+	6:  "июня",
+	7:  "июля",
+	8:  "августа",
+	9:  "сентября",
+	10: "октября",
+	11: "ноября",
+	12: "декабря",
+}
+
 var savedMenus = map[string]string{}
+var savedContents = map[string]string{}
 
 // Allows to read text content from PDF file
 func readPdf(filepath string) (string, error) {
@@ -84,7 +107,7 @@ func downloadPDF(url string, filepath string) error {
 	return nil
 }
 
-// Download HTML with link to PDF
+// Allows to download HTML with link to PDF
 func downloadMenu() (string, error) {
 	// Request the HTML page.
 	res, err := http.Get(MainUrl)
@@ -143,94 +166,92 @@ func downloadMenu() (string, error) {
 	return filePath, nil
 }
 
-func getCurrentDayMenu(target string) string {
-	fmt.Println("getCurrentDayMenu")
-	months := map[int]string{
-		1:  "января",
-		4:  "апреля",
-		5:  "мая",
-		6:  "июня",
-		7:  "июля",
-		8:  "августа",
-		9:  "сентября",
-		10: "октября",
-		11: "ноября",
-		12: "декабря",
-	}
-	separators := []string{
-		"Салат дня – ",
-		"Японский салат дня – ",
-		"Суп дня – ",
-		"Японский суп дня – ",
-		"Горячее дня – ",
-		"Напиток на выбор – ",
-	}
-	stopWord := "компот/пиво"
-	currentTime := time.Now()
-	deltaDays := 0
-	nextDays := 1
-	switch target {
-	case "today":
-		deltaDays = 0
-	case "tomorrow":
-		deltaDays = 1
-		nextDays = 2
-	case "week":
-		return "В разработке..."
-	}
-	// for tests
-	//currentTime = currentTime.AddDate(0,0, 2)
+// Allows to found requested day (today/tomorrow/...) in content, given from PDF
+func fetchDay(content string, shiftDays int) string {
+	currentMenu := ""
+	currentDateTime := time.Now()
+	currentDateTime = currentDateTime.AddDate(0, 0, shiftDays)
+	nextDateTime := currentDateTime.AddDate(0, 0, shiftDays+1)
+	currentDay := fmt.Sprintf("%d %s", currentDateTime.Day(), months[int(currentDateTime.Month())])
+	nextDay := fmt.Sprintf("%d %s", nextDateTime.Day(), months[int(nextDateTime.Month())])
 
-	currentTime = currentTime.AddDate(0, 0, deltaDays)
-	nextTime := currentTime.AddDate(0, 0, nextDays+deltaDays)
-
-	currentDay := fmt.Sprintf("%d %s", currentTime.Day(), months[int(currentTime.Month())])
-	nextDay := fmt.Sprintf("%d %s", nextTime.Day(), months[int(nextTime.Month())])
-
+	log.Printf("Fetching menu for currentDay %s\n", currentDay)
 	currentMenu, exists := savedMenus[currentDay]
 	if exists {
 		log.Printf("Found saved menu for %s\n", currentDay)
 		return currentMenu
 	}
 
-	log.Printf("Getting menu for %s...\n", currentDay)
-	menuPath, err := downloadMenu()
-	if err != nil {
-		return "Couldn't download menu... sorry"
-	}
-	log.Printf("Parsing PDF %s...\n", menuPath)
-
-	content, err := readPdf(menuPath) // Read local pdf file
-	if err != nil {
-		return fmt.Sprintf("Couldn't read PDF file: %s", err)
-	}
-
 	i0 := strings.Index(strings.ToLower(content), currentDay)
 	i1 := strings.Index(strings.ToLower(content), nextDay)
 	if i0 == -1 {
-		currentMenu = "Меню не найдено, ну или у них выходной :("
-		fmt.Println(content)
-		log.Println("Couldn't find current day in downloaded menu. Skip sending.")
-		return currentMenu
-	} else {
-		i0 += len(currentDay)
-		if i1 == -1 {
-			currentMenu = content[i0:]
-		} else {
-			currentMenu = content[i0:i1]
-		}
-		fmt.Println(fmt.Sprintf("%s -> %s", currentDay, nextDay))
-		fmt.Println(fmt.Sprintf("%d -> %d", i0, i1))
-		for _, separator := range separators {
-			newString := fmt.Sprintf("\n%s: ", strings.Replace(separator, " – ", "", 1))
-			currentMenu = strings.ReplaceAll(currentMenu, separator, newString)
-		}
-		contentLastIndex := strings.Index(currentMenu, stopWord) + len(stopWord)
-		currentMenu = currentMenu[:contentLastIndex]
+		log.Printf("Couldn't find day %s in downloaded menu. Skip day.\n", currentDay)
+		return ""
 	}
-	currentMenu = fmt.Sprintf("Меню на %s\n\n%s", currentDay, currentMenu)
+
+	i0 += len(currentDay)
+	if i1 == -1 {
+		currentMenu = content[i0:]
+	} else {
+		currentMenu = content[i0:i1]
+	}
+	for _, separator := range separators {
+		newString := fmt.Sprintf("\n%s: ", strings.Replace(separator, " – ", "", 1))
+		currentMenu = strings.ReplaceAll(currentMenu, separator, newString)
+		currentMenu = strings.ReplaceAll(currentMenu, "�", "")
+	}
+	contentLastIndex := strings.Index(currentMenu, stopWord) + len(stopWord)
+	currentMenu = currentMenu[:contentLastIndex]
+	currentMenu = fmt.Sprintf("Меню на %s\n\n%s\n\n===============\n", currentDay, currentMenu)
 	savedMenus[currentDay] = currentMenu
 	return currentMenu
+}
+
+func getMenu(target string) string {
+	var shiftDays []int
+	switch target {
+	case "today":
+		shiftDays = []int{0}
+	case "tomorrow":
+		shiftDays = []int{1}
+	case "week":
+		shiftDays = []int{0, 1, 2, 3, 4, 5, 6}
+	}
+
+	currentDay := time.Now().Format("02-Jan-2006")
+	content, contentCashExists := savedContents[currentDay]
+	if !contentCashExists {
+		log.Printf("Getting menu for %s...\n", target)
+		menuPath, err := downloadMenu()
+		if err != nil {
+			return "Couldn't download menu... sorry"
+		}
+
+		log.Printf("Parsing PDF %s...\n", menuPath)
+		content, err = readPdf(menuPath) // Read local pdf file
+		if err != nil {
+			log.Printf("Couldn't read PDF file: %s\n", err)
+			return "Не получилось прочитать PDF с меню."
+		}
+	} else {
+		log.Printf("Getting content from cashe. currentDay %s\n", currentDay)
+	}
+
+	resultMenu := ""
+	for _, shiftDay := range shiftDays {
+		currentMenu := fetchDay(content, shiftDay)
+		if currentMenu != "" {
+			resultMenu = fmt.Sprintf("\n%s%s", resultMenu, currentMenu)
+			if !contentCashExists {
+				savedContents[currentDay] = content
+			}
+		}
+	}
+	if resultMenu == "" {
+		log.Printf("Couldn't find current day in downloaded menu. Skip sending. | Content: \n%s\n", content)
+		return "Меню не найдено, ну или у них выходной :("
+	}
+	return resultMenu
 }
 
 func main() {
@@ -245,7 +266,7 @@ func main() {
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
 	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
+	u.Timeout = 80
 
 	updates, err := bot.GetUpdatesChan(u)
 	if err != nil {
@@ -254,16 +275,15 @@ func main() {
 	}
 
 	for update := range updates {
-		println(update.Message.Text)
 		commands := map[string]string{
 			"/menu":     "today",
 			"/tomorrow": "tomorrow",
 			"/week":     "week",
 		}
-		msg := "Пока не знаю такой команды"
+		msg := ""
 		if command, ok := commands[update.Message.Text]; ok {
 			log.Printf("[%s] %s -> %s", update.Message.From.UserName, update.Message.Text, command)
-			msg = getCurrentDayMenu(command)
+			msg = getMenu(command)
 		} else {
 			log.Printf("[%s] %s (unknown)", update.Message.From.UserName, update.Message.Text)
 			msg = "Пока не знаю такой команды"
