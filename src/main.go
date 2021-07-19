@@ -40,6 +40,14 @@ var months = map[int]string{
 	11: "ноября",
 	12: "декабря",
 }
+var mushroomWords = []string{
+	"гриб",
+	"рыбные зразы",
+	"рыбные биточки",
+	"польский соус",
+	"с копченым куриным бедром и грудинкой",
+	"полпетта",
+}
 
 var savedMenus = map[string]string{}
 var savedContents = map[string]string{}
@@ -202,7 +210,14 @@ func fetchDay(content string, shiftDays int) string {
 	}
 	contentLastIndex := strings.Index(currentMenu, stopWord) + len(stopWord)
 	currentMenu = currentMenu[:contentLastIndex]
-	currentMenu = fmt.Sprintf("Меню на %s\n\n%s\n\n===============\n", currentDay, currentMenu)
+	mushroomPostfix := ""
+	for _, mushroomWord := range mushroomWords {
+		mushroomIndexWords := strings.Index(strings.ToLower(currentMenu), mushroomWord)
+		if mushroomIndexWords != -1 {
+			mushroomPostfix = " 🍄 "
+		}
+	}
+	currentMenu = fmt.Sprintf("Меню на %s%s\n\n%s\n\n===============\n", currentDay, mushroomPostfix, currentMenu)
 	savedMenus[currentDay] = currentMenu
 	return currentMenu
 }
