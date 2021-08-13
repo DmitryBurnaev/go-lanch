@@ -1,5 +1,5 @@
 # Go Lunch service
-Simple project which allows getting content for current lunch's menu 
+Simple project that allows getting content for lunch's menu 
 
 ### Implements 
 + parsing menu from downloaded PDF
