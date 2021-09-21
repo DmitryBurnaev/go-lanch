@@ -27,7 +27,6 @@ var separators = []string{
 	"Горячее дня – ",
 	"Напиток на выбор – ",
 }
-var stopWord = "компот/пиво"
 var months = map[int]string{
 	1:  "января",
 	4:  "апреля",
@@ -47,6 +46,11 @@ var mushroomWords = []string{
 	"польский соус",
 	"с копченым куриным бедром и грудинкой",
 	"полпетта",
+}
+var excludeWords = []string{
+	"21 декабря",
+	"22 декабря",
+	"Акция 10 обед в подарок действует до 29.10.2021 года. Карточки на накопление обедов не выдаются с 17.09.2021 года.ВНИМАНИЕ!",
 }
 
 var savedMenus = map[string]string{}
@@ -177,9 +181,9 @@ func downloadMenu() (string, error) {
 // Allows to found requested day (today/tomorrow/...) in content, given from PDF
 func fetchDay(content string, shiftDays int) string {
 	currentMenu := ""
-	currentDateTime := time.Now()
-	currentDateTime = currentDateTime.AddDate(0, 0, shiftDays)
-	nextDateTime := currentDateTime.AddDate(0, 0, shiftDays+1)
+	currentDT := time.Now()
+	currentDateTime := currentDT.AddDate(0, 0, shiftDays)
+	nextDateTime := currentDT.AddDate(0, 0, shiftDays+1)
 	currentDay := fmt.Sprintf("%d %s", currentDateTime.Day(), months[int(currentDateTime.Month())])
 	nextDay := fmt.Sprintf("%d %s", nextDateTime.Day(), months[int(nextDateTime.Month())])
 
@@ -208,8 +212,9 @@ func fetchDay(content string, shiftDays int) string {
 		currentMenu = strings.ReplaceAll(currentMenu, separator, newString)
 		currentMenu = strings.ReplaceAll(currentMenu, "�", "")
 	}
-	contentLastIndex := strings.Index(currentMenu, stopWord) + len(stopWord)
-	currentMenu = currentMenu[:contentLastIndex]
+	for _, word := range excludeWords {
+		currentMenu = strings.ReplaceAll(currentMenu, word, "")
+	}
 	mushroomPostfix := ""
 	for _, mushroomWord := range mushroomWords {
 		mushroomIndexWords := strings.Index(strings.ToLower(currentMenu), mushroomWord)
