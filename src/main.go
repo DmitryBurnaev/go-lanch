@@ -46,13 +46,13 @@ var mushroomWords = []string{
 	"польский соус",
 	"с копченым куриным бедром и грудинкой",
 	"полпетта",
+	"мясной рулет с жареным картофелем и аджикой",
 }
 var excludeWords = []string{
 	"21 декабря",
 	"22 декабря",
-	"Акция 10 обед в подарок действует до 29.10.2021 года. Карточки на накопление обедов не выдаются с 17.09.2021 года.ВНИМАНИЕ!",
 }
-
+var stopWord = "акция 10 обед"
 var savedMenus = map[string]string{}
 var savedContents = map[string]string{}
 
@@ -211,6 +211,10 @@ func fetchDay(content string, shiftDays int) string {
 		newString := fmt.Sprintf("\n%s: ", strings.Replace(separator, " – ", "", 1))
 		currentMenu = strings.ReplaceAll(currentMenu, separator, newString)
 		currentMenu = strings.ReplaceAll(currentMenu, "�", "")
+	}
+	stopIndex := strings.Index(strings.ToLower(currentMenu), stopWord)
+	if stopIndex != -1 {
+		currentMenu = currentMenu[:stopIndex]
 	}
 	for _, word := range excludeWords {
 		currentMenu = strings.ReplaceAll(currentMenu, word, "")
