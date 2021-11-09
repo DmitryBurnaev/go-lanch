@@ -39,6 +39,9 @@ var months = map[int]string{
 	11: "ноября",
 	12: "декабря",
 }
+var badDaysReplacers = map[string]string{
+	"2 ноября": "12 ноября",
+}
 var mushroomWords = []string{
 	"гриб",
 	"рыбные зразы",
@@ -185,9 +188,8 @@ func fetchDay(content string, shiftDays int) string {
 	currentMenu := ""
 	currentDT := time.Now()
 	currentDateTime := currentDT.AddDate(0, 0, shiftDays)
-	nextDateTime := currentDT.AddDate(0, 0, shiftDays+1)
+
 	currentDay := fmt.Sprintf("%d %s", currentDateTime.Day(), months[int(currentDateTime.Month())])
-	nextDay := fmt.Sprintf("%d %s", nextDateTime.Day(), months[int(nextDateTime.Month())])
 
 	log.Printf("Fetching menu for currentDay %s\n", currentDay)
 	currentMenu, exists := savedMenus[currentDay]
@@ -197,10 +199,21 @@ func fetchDay(content string, shiftDays int) string {
 	}
 
 	i0 := strings.Index(strings.ToLower(content), currentDay)
-	i1 := strings.Index(strings.ToLower(content), nextDay)
+	i1 := -1
 	if i0 == -1 {
 		log.Printf("Couldn't find day %s in downloaded menu. Skip day.\n", currentDay)
 		return ""
+	}
+	// getting next day (can be day after weekend)
+	nextDay := ""
+	for i := 1; i < 5; i++ {
+		nextDateTime := currentDT.AddDate(0, 0, shiftDays+i)
+		nextDay = fmt.Sprintf("%d %s", nextDateTime.Day(), months[int(nextDateTime.Month())])
+		println(nextDay)
+		i1 = strings.Index(strings.ToLower(content), nextDay)
+		if i1 != -1 {
+			break
+		}
 	}
 
 	i0 += len(currentDay)
@@ -258,6 +271,9 @@ func getMenu(target string) string {
 		if err != nil {
 			log.Printf("Couldn't read PDF file: %s\n", err)
 			return "Не получилось прочитать PDF с меню."
+		}
+		for badDay, correctDay := range badDaysReplacers {
+			content = strings.ReplaceAll(content, badDay, correctDay)
 		}
 	} else {
 		log.Printf("Getting content from cashe. currentDay %s\n", currentDay)
