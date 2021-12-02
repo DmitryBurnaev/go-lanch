@@ -1,15 +1,12 @@
-FROM golang:1.16-buster
-
-# Set destination for COPY
+FROM golang:latest as build
 WORKDIR /app
 RUN mkdir /app/bin
-
-# Download Go modules
 COPY go.mod .
 COPY go.sum .
 RUN go mod download
 COPY src .
-COPY etc/entrypoint.sh .
+RUN CGO_ENABLED=0 go build -o /app/bin/go-lunch main.go
 
-# Build
-ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]
+FROM alpine:latest as production
+COPY --from=build /app/bin .
+CMD ["./go-lunch"]

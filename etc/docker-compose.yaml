@@ -1,0 +1,9 @@
+version: '3'
+services:
+  web:
+    image:
+      ${REGISTRY_URL}/go-lunch:last
+    env_file:
+      - .env
+    restart:
+      always

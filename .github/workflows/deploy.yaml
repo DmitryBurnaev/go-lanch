@@ -1,0 +1,47 @@
+name: Deploy Application
+on:
+  push:
+    branches:
+      - master
+      - github-ci
+
+jobs:
+
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Docker login
+        run: |
+          echo ${{ secrets.GH_PACK_KEY }} | docker login https://docker.pkg.github.com -u ${{ github.repository_owner }} --password-stdin
+
+      - name: Build image
+        run: docker build -t ${{ secrets.REGISTRY_URL }}/go-lunch:last -f Dockerfile .
+
+      - name: Push image to registry
+        run: docker push ${{ secrets.REGISTRY_URL }}/go-lunch:last
+
+      - name: Prepare SSH key
+        run: |
+          mkdir ~/.ssh
+          echo "${{ secrets.SSH_PKEY }}" > ~/.ssh/id_rsa
+          chmod 400 ~/.ssh/id_rsa
+
+      - name: Copy project files
+        run: |
+          scp -o StrictHostKeyChecking=no ./.env.template ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:${{ secrets.PROD_PROJECT_ROOT }}/.env.template
+          scp -o StrictHostKeyChecking=no ./etc/docker-compose.yaml ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:${{ secrets.PROD_PROJECT_ROOT }}/docker-compose.yaml
+          scp -o StrictHostKeyChecking=no ./etc/deploy.sh ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:${{ secrets.PROD_PROJECT_ROOT }}/deploy.sh
+
+      - name: Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          port: ${{ secrets.PROD_SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PKEY }}
+          script: |
+            export REGISTRY_URL=${{ secrets.REGISTRY_URL }}
+            cd ${{ secrets.PROD_PROJECT_ROOT }}
+            sh deploy.sh
