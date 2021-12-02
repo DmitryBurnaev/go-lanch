@@ -1,0 +1,39 @@
+name: Deploy Application
+on:
+  push:
+    branches:
+      - master
+      - github-ci
+
+jobs:
+
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Build image
+        run: docker build -t go-lunch -f Dockerfile .
+
+      - name: Prepare SSH key
+        run: |
+          mkdir ~/.ssh
+          echo "${{ secrets.SSH_PKEY }}" > ~/.ssh/id_rsa
+          chmod 400 ~/.ssh/id_rsa
+
+#      - name: Deploy
+#        uses: appleboy/ssh-action@master
+#        with:
+#          host: ${{ secrets.PROD_SSH_HOST }}
+#          port: ${{ secrets.PROD_SSH_PORT }}
+#          username: ${{ secrets.SSH_USER }}
+#          key: ${{ secrets.SSH_PKEY }}
+#          script: |
+#            export DEPLOY_MODE=CI
+#            export REGISTRY_URL=${{ secrets.REGISTRY_URL }}
+#            cd ${{ secrets.PROD_PROJECT_ROOT }}
+#            sh deploy.sh
+
+#      - name: Copy project files
+#        run: |
+#          scp -o StrictHostKeyChecking=no -r ./deploy_dist/* ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:${{ secrets.PROD_PROJECT_ROOT }}
