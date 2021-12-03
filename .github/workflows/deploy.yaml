@@ -21,6 +21,18 @@ jobs:
           echo "${{ secrets.SSH_PKEY }}" > ~/.ssh/id_rsa
           chmod 400 ~/.ssh/id_rsa
 
+      - name: Build APP
+        run: docker run -ti --volume $(pwd)/bin:/app/bin go-lunch
+
+#      - name: Stop project
+#        run: |
+#          ssh 'supervisorctl stop go-lunch'
+#
+#      - name: Copy built file
+#        run: |
+#          scp -o StrictHostKeyChecking=no $(pwd)/bin/go-lunch ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:${{ secrets.PROD_PROJECT_ROOT }}
+#
+
 #      - name: Deploy
 #        uses: appleboy/ssh-action@master
 #        with:
