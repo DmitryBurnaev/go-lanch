@@ -30,7 +30,7 @@ jobs:
 
       - name: Copy built file
         run: |
-          scp -o StrictHostKeyChecking=no $(pwd)/bin/go-lunch ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:${{ secrets.PROD_PROJECT_ROOT }}
+          scp -o StrictHostKeyChecking=no $(pwd)/bin/go-lunch ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:${{ secrets.PROD_PROJECT_ROOT }}/go-lunch
 
       - name: Start project
         run: |
