@@ -22,30 +22,16 @@ jobs:
           chmod 400 ~/.ssh/id_rsa
 
       - name: Build APP
-        run: docker run -ti --volume $(pwd)/bin:/app/bin go-lunch
+        run: docker run -t --volume $(pwd)/bin:/app/bin go-lunch
 
-#      - name: Stop project
-#        run: |
-#          ssh 'supervisorctl stop go-lunch'
-#
-#      - name: Copy built file
-#        run: |
-#          scp -o StrictHostKeyChecking=no $(pwd)/bin/go-lunch ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:${{ secrets.PROD_PROJECT_ROOT }}
-#
+      - name: Stop project
+        run: |
+          ssh 'supervisorctl stop go-lunch'
 
-#      - name: Deploy
-#        uses: appleboy/ssh-action@master
-#        with:
-#          host: ${{ secrets.PROD_SSH_HOST }}
-#          port: ${{ secrets.PROD_SSH_PORT }}
-#          username: ${{ secrets.SSH_USER }}
-#          key: ${{ secrets.SSH_PKEY }}
-#          script: |
-#            export DEPLOY_MODE=CI
-#            export REGISTRY_URL=${{ secrets.REGISTRY_URL }}
-#            cd ${{ secrets.PROD_PROJECT_ROOT }}
-#            sh deploy.sh
+      - name: Copy built file
+        run: |
+          scp -o StrictHostKeyChecking=no $(pwd)/bin/go-lunch ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:${{ secrets.PROD_PROJECT_ROOT }}
 
-#      - name: Copy project files
-#        run: |
-#          scp -o StrictHostKeyChecking=no -r ./deploy_dist/* ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:${{ secrets.PROD_PROJECT_ROOT }}
+      - name: Start project
+        run: |
+          ssh 'supervisorctl start go-lunch'
