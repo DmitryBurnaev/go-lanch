@@ -26,7 +26,7 @@ jobs:
 
       - name: Stop project
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }} 'supervisorctl stop go-lunch'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }} 'supervisorctl stop go-lunch'
 
       - name: Copy built file
         run: |
@@ -34,4 +34,4 @@ jobs:
 
       - name: Start project
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }} 'supervisorctl start go-lunch'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.PROD_SSH_HOST }} 'supervisorctl start go-lunch'
