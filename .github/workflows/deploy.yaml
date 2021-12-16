@@ -2,11 +2,8 @@ name: Deploy Application
 on:
   push:
     branches:
-      - master
+      - main
       - github-ci
-  pull_request:
-    branches:
-      - master
 
 jobs:
 
