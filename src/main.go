@@ -197,7 +197,9 @@ func fetchDay(content string, shiftDays int) string {
 		log.Printf("Found saved menu for %s\n", currentDay)
 		return currentMenu
 	}
-
+	for _, word := range excludeWords {
+		content = strings.ReplaceAll(content, word, "")
+	}
 	i0 := strings.Index(strings.ToLower(content), currentDay)
 	i1 := -1
 	if i0 == -1 {
@@ -230,9 +232,6 @@ func fetchDay(content string, shiftDays int) string {
 	stopIndex := strings.Index(strings.ToLower(currentMenu), stopWord)
 	if stopIndex != -1 {
 		currentMenu = currentMenu[:stopIndex]
-	}
-	for _, word := range excludeWords {
-		currentMenu = strings.ReplaceAll(currentMenu, word, "")
 	}
 	mushroomPostfix := ""
 	for _, mushroomWord := range mushroomWords {
