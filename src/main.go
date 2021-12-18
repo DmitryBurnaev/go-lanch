@@ -55,13 +55,12 @@ var mushroomWords = []string{
 var excludeWords = []string{
 	"21 декабря",
 	"22 декабря",
-	"Акция 10 обед в подарок действует до 29.10.2021 года. Карточки на накопление обедов не выдаются с 17.09.2021 года.ВНИМАНИЕ!",
 }
 var stopWord = "акция 10 обед"
 var savedMenus = map[string]string{}
 var savedContents = map[string]string{}
 
-// Allows to read text content from PDF file
+// Allows reading text content from PDF file
 func readPdf(filepath string) (string, error) {
 	f, r, err := pdf.Open(filepath)
 	defer func(f *os.File) {
@@ -89,7 +88,7 @@ func readPdf(filepath string) (string, error) {
 	return buf.String(), nil
 }
 
-// Allows to download PDF from puberty's site
+// Allows downloading PDF from puberty's site
 func downloadPDF(url string, filepath string) error {
 	// Get the data
 	resp, err := http.Get(url)
@@ -124,7 +123,7 @@ func downloadPDF(url string, filepath string) error {
 	return nil
 }
 
-// Allows to download HTML with link to PDF
+// Allows downloading HTML with link to PDF
 func downloadMenu() (string, error) {
 	// Request the HTML page.
 	res, err := http.Get(MainUrl)
@@ -183,7 +182,7 @@ func downloadMenu() (string, error) {
 	return filePath, nil
 }
 
-// Allows to found requested day (today/tomorrow/...) in content, given from PDF
+// Allows finding requested day (today/tomorrow/...) in content, given from PDF
 func fetchDay(content string, shiftDays int) string {
 	currentMenu := ""
 	currentDT := time.Now()
@@ -197,9 +196,6 @@ func fetchDay(content string, shiftDays int) string {
 		log.Printf("Found saved menu for %s\n", currentDay)
 		return currentMenu
 	}
-	for _, word := range excludeWords {
-		content = strings.ReplaceAll(content, word, "")
-	}
 	i0 := strings.Index(strings.ToLower(content), currentDay)
 	i1 := -1
 	if i0 == -1 {
@@ -211,7 +207,6 @@ func fetchDay(content string, shiftDays int) string {
 	for i := 1; i < 5; i++ {
 		nextDateTime := currentDT.AddDate(0, 0, shiftDays+i)
 		nextDay = fmt.Sprintf("%d %s", nextDateTime.Day(), months[int(nextDateTime.Month())])
-		println(nextDay)
 		i1 = strings.Index(strings.ToLower(content), nextDay)
 		if i1 != -1 {
 			break
@@ -232,6 +227,9 @@ func fetchDay(content string, shiftDays int) string {
 	stopIndex := strings.Index(strings.ToLower(currentMenu), stopWord)
 	if stopIndex != -1 {
 		currentMenu = currentMenu[:stopIndex]
+	}
+	for _, word := range excludeWords {
+		currentMenu = strings.ReplaceAll(currentMenu, word, "")
 	}
 	mushroomPostfix := ""
 	for _, mushroomWord := range mushroomWords {
@@ -284,6 +282,7 @@ func getMenu(target string) string {
 		if currentMenu != "" {
 			resultMenu = fmt.Sprintf("\n%s%s", resultMenu, currentMenu)
 			if !contentCashExists {
+				//log.Println(content)
 				savedContents[currentDay] = content
 			}
 		}
@@ -334,6 +333,5 @@ func main() {
 		if err != nil {
 			log.Printf("Couldn't send message to channel %d. Error: %s", update.Message.Chat.ID, err)
 		}
-
 	}
 }
