@@ -29,6 +29,8 @@ var separators = []string{
 }
 var months = map[int]string{
 	1:  "января",
+	2:  "февраля",
+	3:  "марта",
 	4:  "апреля",
 	5:  "мая",
 	6:  "июня",
@@ -216,6 +218,9 @@ func fetchDay(content string, shiftDays int) string {
 	i0 += len(currentDay)
 	if i1 == -1 {
 		currentMenu = content[i0:]
+	} else if i0 > i1 || i1 > len(content) {
+		log.Printf("Problem with indexes: i0: %d | i1: %d | day '%s'. Skip day.\n", i0, i1, currentDay)
+		return ""
 	} else {
 		currentMenu = content[i0:i1]
 	}
@@ -255,8 +260,8 @@ func getMenu(target string) string {
 	}
 
 	currentDay := time.Now().Format("02-Jan-2006")
-	content, contentCashExists := savedContents[currentDay]
-	if !contentCashExists {
+	content, contentCacheExists := savedContents[currentDay]
+	if !contentCacheExists {
 		log.Printf("Getting menu for %s...\n", target)
 		menuPath, err := downloadMenu()
 		if err != nil {
@@ -278,10 +283,11 @@ func getMenu(target string) string {
 
 	resultMenu := ""
 	for _, shiftDay := range shiftDays {
+
 		currentMenu := fetchDay(content, shiftDay)
 		if currentMenu != "" {
 			resultMenu = fmt.Sprintf("\n%s%s", resultMenu, currentMenu)
-			if !contentCashExists {
+			if !contentCacheExists {
 				//log.Println(content)
 				savedContents[currentDay] = content
 			}
